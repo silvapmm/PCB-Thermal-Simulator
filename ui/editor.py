@@ -2115,13 +2115,13 @@ class PCBEditor(wx.Frame):
         """
         @brief Handle key press events for adding/deleting vertices or aborting operations.
         @details Processes Esc to abort, 'a/A' to add vertex near edge, 'd/D' to delete nearest vertex (min 3 points).
+                Added handling for Esc to cancel Duplicate Selected operation by clearing duplicate_element and preview_position.
         @param event Key event.
         """
         # Get the key code of the pressed key
         keycode = event.GetKeyCode()
         # Log the key pressed for debugging
         self.logger.debug(f"Key pressed: {keycode}")
-
         # Handle Esc key to abort current operation
         if keycode == wx.WXK_ESCAPE:
             # Abort "Move Selected" tool
@@ -2153,9 +2153,19 @@ class PCBEditor(wx.Frame):
                 self.logger.info("Aborted edit operation")
                 # Refresh canvas
                 self.canvas.Refresh()
+            # Abort "Duplicate Selected" operation
+            elif self.duplicate_element is not None:
+                # Reset duplication state to cancel the operation
+                self.duplicate_element = None
+                self.preview_position = None
+                # Update instruction label to reflect the initial state of the tool
+                self.title_label.SetLabel("Duplicate Selected - Click to select element, click to place, esc to cancel")
+                # Log the abort action
+                self.logger.info("Aborted duplicate operation")
+                # Refresh canvas to remove the preview
+                self.canvas.Refresh()
             # Exit function after handling Esc
             return
-
         # Handle key bindings only in "Edit Selected" mode
         if self.current_tool == "Edit Selected" and self.editing_element is not None:
             # Get current mouse position in unscrolled coordinates
@@ -2163,7 +2173,6 @@ class PCBEditor(wx.Frame):
             # Apply pan and zoom to get adjusted coordinates
             adjusted_x = (x - self.pan_x) / self.zoom_factor
             adjusted_y = (y - self.pan_y) / self.zoom_factor
-
             # Handle 'a' or 'A' to add a vertex near the closest edge
             if keycode in [ord('a'), ord('A')]:
                 # Get polygon points excluding closing point
@@ -2212,7 +2221,6 @@ class PCBEditor(wx.Frame):
                 else:
                     # Log no edge found
                     self.logger.debug(f"No edge found near ({adjusted_x:.2f}, {adjusted_y:.2f}) pixels for adding vertex")
-
             # Handle 'd' or 'D' to delete the nearest vertex
             elif keycode in [ord('d'), ord('D')]:
                 # Get polygon points excluding closing point
@@ -2249,7 +2257,7 @@ class PCBEditor(wx.Frame):
                 else:
                     # Log no vertex found
                     self.logger.debug(f"No vertex found near ({adjusted_x:.2f}, {adjusted_y:.2f}) pixels for deletion")
-
+    
     def update_element_table(self):
         """
         @brief Update the ListCtrl table with the current elements.

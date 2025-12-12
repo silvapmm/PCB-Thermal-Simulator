@@ -1854,8 +1854,8 @@ class FDMResultsDialog(wx.Dialog):
             self.logger.debug("Zone averages for layer %d: %s", layer_idx, formatted_averages)
             return zone_averages
 
-        # --- TOP LAYER ZONES ---
-        # Create panel for Top layer
+        # --- COMBINED ZONES ---
+        # Create panel for combined zones
         layer_panel1 = wx.Panel(scroll)
         layer_sizer1 = wx.BoxSizer(wx.VERTICAL)
         # Create matplotlib figure and axis
@@ -1868,11 +1868,18 @@ class FDMResultsDialog(wx.Dialog):
         ax1.set_facecolor('white')
         # Compute zone averages for Top layer
         zone_averages_top = compute_zone_averages(top_layer, 0)
-        zones = [f"Zone {zone_id}" for zone_id in zone_averages_top.keys()]  # Use zone IDs as labels
-        averages = list(zone_averages_top.values())
+        zones_top = [f"Zone {zone_id}" for zone_id in zone_averages_top.keys()]  # Use zone IDs as labels
+        averages_top = list(zone_averages_top.values())
+        # Compute zone averages for Bottom layer
+        zone_averages_bottom = compute_zone_averages(bottom_layer, num_layers - 1 if num_layers > 1 else 0)
+        zones_bottom = [f"Zone {zone_id}" for zone_id in zone_averages_bottom.keys()]  # Use zone IDs as labels
+        averages_bottom = list(zone_averages_bottom.values())
+        # Combine top and bottom
+        zones = zones_top + zones_bottom
+        averages = averages_top + averages_bottom
         if not averages:
-            self.logger.warning("Dialog updated with results and content: No valid zone averages for Top layer")
-            no_data_text = wx.StaticText(layer_panel1, label="No valid zone averages for Top Layer")
+            self.logger.warning("Dialog updated with results and content: No valid zone averages")
+            no_data_text = wx.StaticText(layer_panel1, label="No valid zone averages")
             no_data_text.SetFont(wx.Font(config.DEFAULT_RESULTS_FONT_SIZE, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
             layer_sizer1.Add(no_data_text, 0, wx.ALL | wx.ALIGN_CENTER, 20)
         else:
@@ -1883,7 +1890,7 @@ class FDMResultsDialog(wx.Dialog):
             ax1.grid(True, which='minor', linestyle=':', alpha=0.3, color='gray', zorder=0)
             ax1.minorticks_on()
             # Y-axis margin from config
-            max_val = max(averages)
+            max_val = max(averages) if averages else 0
             margin_percent = config.DEFAULT_CHART_Y_MARGIN_PERCENT / 100.0
             if margin_percent > 0:
                 y_margin = max_val * margin_percent
@@ -1894,7 +1901,7 @@ class FDMResultsDialog(wx.Dialog):
             # Rotate x-axis labels for readability
             ax1.set_xticklabels(zones, rotation=90)
             # Set title and label
-            ax1.set_title("Top Layer - Zone Averages")
+            ax1.set_title("Zone Averages")
             ax1.set_ylabel("Temperature (°C)")
             # Add value labels on bars
             for bar, v in zip(bars1, averages):
@@ -1903,7 +1910,7 @@ class FDMResultsDialog(wx.Dialog):
             # Tight layout
             plt.tight_layout()
             # Define filename for this layer's zones
-            zones_filename1 = "fdm_zones_top.png"
+            zones_filename1 = "fdm_zones.png"
             zones_path1 = os.path.join(config.DEFAULT_TEMP_DIR, zones_filename1)
             # Save figure to temporary directory
             fig1.savefig(zones_path1, format='png', dpi=100, bbox_inches='tight')
@@ -1921,73 +1928,6 @@ class FDMResultsDialog(wx.Dialog):
         layer_panel1.SetSizer(layer_sizer1)
         # Add layer panel to scroll sizer
         scroll_sizer.Add(layer_panel1, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-
-        # --- BOTTOM LAYER ZONES ---
-        # Create panel for Bottom layer
-        layer_panel2 = wx.Panel(scroll)
-        layer_sizer2 = wx.BoxSizer(wx.VERTICAL)
-        # Create matplotlib figure and axis
-        fig2, ax2 = plt.subplots(figsize=(4, 3))  # Same size as summary tab
-        # Set global font size from config
-        plt.rcParams.update({'font.size': config.DEFAULT_CHART_FONT_SIZE})
-        # Match dialog background
-        fig2.patch.set_facecolor((bg.Red() / 255.0, bg.Green() / 255.0, bg.Blue() / 255.0))
-        ax2.set_facecolor('white')
-        # Compute zone averages for Bottom layer
-        zone_averages_bottom = compute_zone_averages(bottom_layer, num_layers - 1 if num_layers > 1 else 0)
-        zones = [f"Zone {zone_id}" for zone_id in zone_averages_bottom.keys()]  # Use zone IDs as labels
-        averages = list(zone_averages_bottom.values())
-        if not averages:
-            self.logger.warning("Dialog updated with results and content: No valid zone averages for Bottom layer")
-            no_data_text = wx.StaticText(layer_panel2, label="No valid zone averages for Bottom Layer")
-            no_data_text.SetFont(wx.Font(config.DEFAULT_RESULTS_FONT_SIZE, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-            layer_sizer2.Add(no_data_text, 0, wx.ALL | wx.ALIGN_CENTER, 20)
-        else:
-            # Display bar chart
-            bars2 = ax2.bar(zones, averages, color=config.DEFAULT_CHART_COLOR_SCHEME[0], zorder=3)
-            # Add grids
-            ax2.grid(True, which='major', linestyle='--', alpha=0.7, color='gray', zorder=0)
-            ax2.grid(True, which='minor', linestyle=':', alpha=0.3, color='gray', zorder=0)
-            ax2.minorticks_on()
-            # Y-axis margin from config
-            max_val = max(averages)
-            margin_percent = config.DEFAULT_CHART_Y_MARGIN_PERCENT / 100.0
-            if margin_percent > 0:
-                y_margin = max_val * margin_percent
-                ax2.set_ylim(0, max_val + y_margin)
-                label_offset = y_margin * 0.3
-            else:
-                label_offset = max_val * 0.05
-            # Rotate x-axis labels for readability
-            ax2.set_xticklabels(zones, rotation=90)
-            # Set title and label
-            ax2.set_title("Bottom Layer - Zone Averages")
-            ax2.set_ylabel("Temperature (°C)")
-            # Add value labels on bars
-            for bar, v in zip(bars2, averages):
-                ax2.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + label_offset,
-                         f'{v:.2f}', ha='center', va='bottom')
-            # Tight layout
-            plt.tight_layout()
-            # Define filename for this layer's zones
-            zones_filename2 = "fdm_zones_bottom.png"
-            zones_path2 = os.path.join(config.DEFAULT_TEMP_DIR, zones_filename2)
-            # Save figure to temporary directory
-            fig2.savefig(zones_path2, format='png', dpi=100, bbox_inches='tight')
-            # Close figure to free memory
-            plt.close(fig2)
-            # Load saved image as wx.Image
-            img2 = wx.Image(zones_path2, wx.BITMAP_TYPE_PNG)
-            # Convert to bitmap (fallback to 1x1 if invalid)
-            bmp2 = wx.Bitmap(img2) if img2.IsOk() else wx.Bitmap(1, 1)
-            # Create static bitmap to display zones
-            bitmap2 = wx.StaticBitmap(layer_panel2, bitmap=bmp2)
-            # Add bitmap to layer sizer with padding
-            layer_sizer2.Add(bitmap2, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        # Apply sizer to layer panel
-        layer_panel2.SetSizer(layer_sizer2)
-        # Add layer panel to scroll sizer
-        scroll_sizer.Add(layer_panel2, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
         # Apply sizer to scroll window
         scroll.SetSizer(scroll_sizer)
@@ -2135,5 +2075,7 @@ class FDMResultsDialog(wx.Dialog):
             self.logger.error(f"Save failed: {e}")
             # Show error dialog to user
             wx.MessageBox(f"Save failed: {e}", "Error", wx.OK | wx.ICON_ERROR)
+    
+    
 
 
